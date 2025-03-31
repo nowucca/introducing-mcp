@@ -1,2 +1,4 @@
 #!/bin/bash
-python3 server/server.py
+echo "Starting MCP server..."
+cd "$(dirname "$0")"
+python server/server.py

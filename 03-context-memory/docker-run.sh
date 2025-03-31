@@ -1,15 +1,7 @@
 #!/bin/bash
-set -e
-
-# Default to WebSocket implementation if not specified
-IMPLEMENTATION=${IMPLEMENTATION:-websocket}
-
-# Run the Docker container with the specified implementation
-docker run -it --rm \
-  -e IMPLEMENTATION=$IMPLEMENTATION \
-  -e OPENAI_API_KEY \
-  -e OPENAI_BASE_URL \
-  -e OPENAI_MODEL \
-  mcp-context-memory
-
-echo "Docker container execution completed"
+# Thin wrapper script for running the Docker container
+# Pass OpenAI environment variables
+export OPENAI_API_KEY
+export OPENAI_BASE_URL
+export OPENAI_MODEL
+../shared/docker.sh run
