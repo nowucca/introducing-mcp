@@ -1,0 +1,5 @@
+mcp>=0.1.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+pytz>=2023.3
+websockets>=11.0.3
