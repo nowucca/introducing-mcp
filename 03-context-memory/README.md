@@ -1,6 +1,6 @@
 # MCP Context Memory Example
 
-This project demonstrates how to use client-side memory to automatically fill in missing parameters in MCP tool calls. It shows how a client can maintain context (like user preferences) and apply it to tool calls without requiring the user or LLM to specify these values every time.
+This example demonstrates how to use client-side memory to automatically fill in missing parameters in MCP tool calls. It shows how a client can maintain context (like user preferences) and apply it to tool calls without requiring the user or LLM to specify these values every time.
 
 ## What This Example Does
 
@@ -12,6 +12,20 @@ When you run this example:
    - If a city name is provided, it's mapped to the appropriate timezone
    - If no timezone or city is provided, the client automatically adds the default timezone from memory
 4. The server returns the current time in the specified timezone
+
+## Key Concepts
+
+- **Client-Side Memory**: How clients can maintain context between tool calls
+- **Parameter Filling**: Automatically providing missing parameters based on context
+- **City-to-Timezone Mapping**: Converting user-friendly inputs to technical parameters
+- **Parameter Validation**: Ensuring parameters are valid before sending to the server
+
+## Learning Objectives
+
+- Understand how to maintain client-side context in MCP applications
+- Learn how to automatically fill in missing parameters in tool calls
+- See how to validate and transform parameters before sending to the server
+- Explore patterns for enhancing user experience with contextual memory
 
 ## Client Memory Implementation
 
@@ -35,12 +49,6 @@ CITY_TO_TIMEZONE = {
     "tokyo": "Asia/Tokyo",
     # ... and many more
 }
-```
-
-The client uses a system message to encourage the LLM to use the tool:
-
-```python
-system_message = "You are a helpful assistant that provides the current time. When asked about the time, always use the get_time tool, even if no timezone is specified. The client will automatically fill in any missing parameters."
 ```
 
 When a tool call is made, the client checks for city names, validates timezones, and fills in missing parameters:
@@ -70,38 +78,11 @@ def fill_args_if_missing(arguments):
     return filled_args
 ```
 
-The client also validates timezones to ensure they're valid:
-
-```python
-def is_valid_timezone(timezone_str):
-    """Check if a timezone string is valid"""
-    try:
-        pytz.timezone(timezone_str)
-        return True
-    except pytz.exceptions.UnknownTimeZoneError:
-        return False
-```
-
 This pattern is useful for:
 - User preferences (timezone, language, units)
 - User identity (user ID, session info)
 - Conversation context (previous topics, entities)
 - Application state (current view, selected items)
-
-## Prerequisites: OpenAI API Key
-
-Before running this example, set up your OpenAI API key in the `.env` file:
-
-1. Create an account on [OpenAI](https://platform.openai.com/) if you don't have one
-2. Generate an API key from the OpenAI dashboard
-3. Edit the `.env` file in this directory:
-   ```
-   OPENAI_API_KEY=your-api-key-here
-   OPENAI_BASE_URL=https://api.openai.com/v1
-   OPENAI_MODEL=gpt-4o
-   ```
-
-> **Note for VT Students**: The default configuration uses the VT proxy server. If you're a VT student, you can use this configuration without an OpenAI API key.
 
 ## Interactive Experience
 
@@ -121,28 +102,14 @@ Try these examples:
 - **Other city examples**: "What time is it in Chicago?" (maps to "America/Chicago")
 - **Using explicit timezones**: "What's the current time in UTC+2?" (the LLM will specify the timezone directly)
 
-## How to Run the Example
-
-### Linux/macOS
-```bash
-# Build and run with Docker
-./docker-build.sh
-./docker-run.sh
-```
-
-### Windows
-```powershell
-# Build and run with Docker
-.\docker-build.ps1
-.\docker-run.ps1
-```
-
-## Implementation Details
+## Implementation Approaches
 
 This example provides two complementary implementations:
 
 1. **WebSocket Implementation (Default)**: Shows the raw JSON-RPC messages for learning
 2. **High-Level SDK Implementation**: Demonstrates a cleaner, production-ready approach
+
+## Implementation Details
 
 ### WebSocket Implementation
 
@@ -169,21 +136,56 @@ The SDK implementation uses the MCP SDK for a cleaner, more abstracted approach.
 # Windows
 .\sdk-run.ps1
 ```
+## Running the Example
 
-## Docker Support
+### Prerequisites: OpenAI API Key
+
+Before running this example, set up your OpenAI API key in the `.env` file:
+
+1. Create an account on [OpenAI](https://platform.openai.com/) if you don't have one
+2. Generate an API key from the OpenAI dashboard
+3. Edit the `.env` file in this directory:
+   ```
+   OPENAI_API_KEY=your-api-key-here
+   OPENAI_BASE_URL=https://api.openai.com/v1
+   OPENAI_MODEL=gpt-4o
+   ```
+
+> **Note**: If you use the `run_exercises.py` script to run this example, the `.env` file will be created for you automatically.
+
+> **Note for VT Students**: The default configuration uses the VT proxy server. If you're a VT student, you can use this configuration without an OpenAI API key.
+
+### Docker Support
 
 This example includes Docker support with helpful scripts:
 
-### Linux/macOS
+#### Linux/macOS
 - `docker-build.sh`: Builds the Docker image
 - `docker-run.sh`: Runs the container with WebSocket implementation
 - `docker-clean.sh`: Cleans up containers and images
 - `docker-stop.sh`: Stops running containers
 - `sdk-run.sh`: Runs the container with SDK implementation
 
-### Windows
+#### Windows
 - `docker-build.ps1`: Builds the Docker image
 - `docker-run.ps1`: Runs the container with WebSocket implementation
 - `docker-clean.ps1`: Cleans up containers and images
 - `docker-stop.ps1`: Stops running containers
 - `sdk-run.ps1`: Runs the container with SDK implementation
+
+### Internal Scripts (For Docker Use Only)
+
+The `run.sh` script is used internally by the Docker container and is not intended to be run directly:
+
+```bash
+# This is used internally by Docker - DO NOT RUN DIRECTLY
+./run.sh
+```
+
+It handles:
+1. Starting the server in the background
+2. Waiting for initialization
+3. Running the appropriate client
+4. Cleaning up processes when done
+
+> **Important**: Students should always use the Docker scripts (`docker-build.sh`/`docker-run.sh` or `docker-build.ps1`/`docker-run.ps1`) to run the examples, not the internal scripts.

@@ -1,143 +1,150 @@
 # MCP Agent Planning Example
 
-This example demonstrates how to use an LLM to generate a plan of tool calls based on a user query. It shows how to convert MCP tools to OpenAI function format, send a query to the LLM, extract the generated plan, and execute the tool calls.
+This example demonstrates how to use an LLM to generate a plan of tool calls based on a user query. In this approach, the LLM analyzes the user's request and decides which tools to call and with what parameters.
 
-## Overview
+## What This Example Does
 
-In this example, we create a client that:
-
-1. Connects to an MCP server
-2. Requests the list of available tools
-3. Sends a user query to an LLM along with the available tools
-4. Extracts the LLM's plan of tool calls
-5. Executes the plan and displays the results
+When you run this example:
+1. The client connects to an MCP server
+2. The client requests the list of available tools
+3. You'll be prompted to enter a question or request
+4. The client sends your query to the LLM along with information about available tools
+5. The LLM generates a "plan" consisting of tool calls to execute
+6. The client executes these tool calls in parallel
+7. Results are collected and presented to you
 
 ## Key Concepts
 
-### LLM-Generated Planning
+- **LLM-based Planning**: Using an LLM to decide which tools to call based on user input
+- **Dynamic Tool Selection**: Allowing the LLM to choose tools and parameters based on context
+- **Parallel Execution**: Running multiple tool calls concurrently for efficiency
+- **Plan Generation**: Creating a structured plan of actions from natural language
 
-The core concept demonstrated is using an LLM to generate a plan of tool calls based on a user query. Instead of hardcoding which tools to call, we let the LLM decide which tools are appropriate for the given query and what arguments to use.
+## Learning Objectives
 
-This approach has several advantages:
-- **Natural language interface**: Users can express their needs in natural language
-- **Dynamic tool selection**: The LLM chooses the most appropriate tools for each query
-- **Flexible argument handling**: The LLM extracts relevant parameters from the query
-
-### Plan Execution
-
-Once the LLM generates a plan, we execute the tool calls concurrently using `asyncio.gather()`, which can significantly improve performance when dealing with multiple independent operations.
+- Understand how LLMs can generate plans of tool calls
+- Learn how to convert LLM outputs into executable tool calls
+- See how to execute a dynamically generated plan
+- Explore different approaches to plan formulation in agent systems
 
 ## Implementation Details
 
-### LLM Planning Process
+### How It Works
 
-The planning process involves these steps:
+1. The client connects to the MCP server and retrieves the list of available tools
+2. The client sends a query to the OpenAI API along with tool definitions
+3. The LLM decides which tools to call based on the query
+4. The client executes the tool calls concurrently
+5. Results are collected and displayed
 
-1. **Tool Advertisement**: Convert MCP tools to OpenAI function format
-2. **Query Processing**: Send the user query to the LLM with the available tools
-3. **Plan Extraction**: Extract the tool calls from the LLM's response
-4. **Plan Execution**: Execute the tool calls concurrently
+### Code Structure
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Client
-    participant LLM
-    participant Server
-    
-    User->>Client: "What's the weather and time in Sydney, Australia?"
-    Client->>Server: Request available tools
-    Server-->>Client: Return tool list (get_time, get_weather)
-    
-    Client->>LLM: Send query + available tools
-    LLM-->>Client: Generate plan with tool calls
-    
-    Note over Client: Plan = [get_time(timezone="Australia/Sydney"), get_weather(city="Sydney")]
-    
-    par Concurrent Tool Calls
-        Client->>Server: Call get_time tool
-        Server-->>Client: Return time result
-        
-        Client->>Server: Call get_weather tool
-        Server-->>Client: Return weather result
-    end
-    
-    Client->>User: Display combined results
-```
+- `client.py`: Connects to the MCP server, sends queries to the LLM, and executes tool calls
+- `server.py`: Implements the MCP server with time and weather tools
 
-### Alternative Planning Approaches
+## Alternative Approaches to Plan Formulation
 
-There are several ways to approach tool planning in LLM-based systems:
+While this example uses the LLM to generate a plan of tool calls, there are several other approaches to formulating plans in agent systems:
 
-1. **LLM-Generated Planning (this example)**: The LLM generates a structured plan of tool calls based on the user query.
+### 1. Rule-based Planning
 
-2. **Rule-Based Planning**: Use predefined rules to determine which tools to call based on keywords or patterns in the user query.
-   ```python
-   if "weather" in query and "time" in query:
-       # Call both weather and time tools
-   elif "weather" in query:
-       # Call only weather tool
-   elif "time" in query:
-       # Call only time tool
-   ```
+Instead of using an LLM to decide which tools to call, you could implement a rule-based system that maps specific patterns in user queries to predefined tool calls.
 
-3. **Hybrid Planning**: Combine LLM and rule-based approaches, where simple cases are handled by rules and complex cases are delegated to the LLM.
-   ```python
-   if simple_case(query):
-       # Use rule-based planning
-   else:
-       # Use LLM-generated planning
-   ```
+**Pros:**
+- Predictable behavior
+- No dependency on external LLM APIs
+- Potentially faster execution
 
-4. **Multi-Step Planning**: For complex tasks, use the LLM to generate a high-level plan, then refine each step with additional LLM calls.
-   ```python
-   high_level_plan = generate_high_level_plan(query)
-   for step in high_level_plan:
-       detailed_step = refine_step(step)
-       execute_step(detailed_step)
-   ```
+**Cons:**
+- Less flexible
+- Requires manual rule creation
+- Difficult to handle complex or ambiguous queries
 
-5. **User-Guided Planning**: Allow users to review and modify the LLM-generated plan before execution.
-   ```python
-   plan = generate_plan(query)
-   modified_plan = present_to_user_for_review(plan)
-   execute_plan(modified_plan)
-   ```
+### 2. Hybrid Approach
 
-6. **Learning-Based Planning**: Use feedback from previous interactions to improve planning over time.
-   ```python
-   plan = generate_plan(query, previous_successful_plans)
-   results = execute_plan(plan)
-   store_plan_and_results(plan, results)
-   ```
+Combine rule-based planning with LLM planning. Use rules for common, well-defined queries and fall back to LLM planning for more complex or ambiguous requests.
 
-Each approach has its own advantages and trade-offs in terms of flexibility, control, and user experience.
+**Pros:**
+- Balances predictability with flexibility
+- Can reduce costs by minimizing LLM API calls
+- Potentially faster for common queries
 
+**Cons:**
+- More complex implementation
+- Requires maintaining two systems
+
+### 3. Multi-step Planning
+
+Instead of generating the entire plan at once, the LLM could generate one step at a time, observe the result, and then decide on the next step.
+
+**Pros:**
+- Can adapt based on intermediate results
+- Potentially more accurate for complex tasks
+- Better handling of errors or unexpected results
+
+**Cons:**
+- More LLM API calls
+- Slower execution
+- More complex implementation
+
+### 4. User-guided Planning
+
+Present the LLM-generated plan to the user for approval or modification before execution.
+
+**Pros:**
+- Greater user control
+- Opportunity to correct misunderstandings
+- Educational for users
+
+**Cons:**
+- Requires more user interaction
+- Slower execution
+- May frustrate users who want immediate results
+
+### 5. Template-based Planning
+
+Use predefined plan templates for common query types, with the LLM filling in the specifics.
+
+**Pros:**
+- More consistent behavior
+- Reduced LLM token usage
+- Potentially faster
+
+**Cons:**
+- Less flexible
+- Requires creating and maintaining templates
+- May not handle novel requests well
 ## Running the Example
 
-### Prerequisites
+### Prerequisites: OpenAI API Key
 
-- Python 3.8 or higher
-- Required packages: `mcp`, `openai`, `python-dotenv`, `pytz`, `websockets`
+Before running this example, set up your OpenAI API key in the `.env` file:
 
-### Setup
-
-1. Create a `.env` file with your OpenAI API credentials:
-   ```
-   OPENAI_API_KEY=your-api-key
-   OPENAI_BASE_URL=https://api.openai.com/v1
-   OPENAI_MODEL=gpt-4o
-   ```
-
-### Running with Docker
-
-```bash
-# Build the Docker image
-./docker-build.sh
-
-# Run the example
-./docker-run.sh
 ```
+OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o
+```
+
+> **Note**: If you use the `run_exercises.py` script to run this example, the `.env` file will be created for you automatically.
+
+### Docker Support
+
+This example includes Docker support with helpful scripts:
+
+#### Linux/macOS
+- `docker-build.sh`: Builds the Docker image
+- `docker-run.sh`: Runs the container with WebSocket implementation
+- `docker-clean.sh`: Cleans up containers and images
+- `docker-stop.sh`: Stops running containers
+- `sdk-run.sh`: Runs the container with SDK implementation
+
+#### Windows
+- `docker-build.ps1`: Builds the Docker image
+- `docker-run.ps1`: Runs the container with WebSocket implementation
+- `docker-clean.ps1`: Cleans up containers and images
+- `docker-stop.ps1`: Stops running containers
+- `sdk-run.ps1`: Runs the container with SDK implementation
 
 ### Running Locally
 
@@ -149,11 +156,25 @@ Each approach has its own advantages and trade-offs in terms of flexibility, con
 ./run_client.sh
 ```
 
-## SDK vs WebSocket Implementation
+### Internal Scripts (For Docker Use Only)
 
-This example includes two client implementations:
+The `run.sh` script is used internally by the Docker container and is not intended to be run directly:
 
-1. **client_websocket.py**: Uses raw WebSocket communication with JSON-RPC messages with LLM planning (recommended)
-2. **client.py**: Uses the high-level MCP SDK with LLM planning
+```bash
+# This is used internally by Docker - DO NOT RUN DIRECTLY
+./run.sh
+```
 
-The WebSocket implementation is the default and recommended approach as it provides more direct control over the communication protocol and better illustrates the underlying mechanics of the MCP protocol.
+It handles:
+1. Starting the server in the background
+2. Waiting for initialization
+3. Running the appropriate client
+4. Cleaning up processes when done
+
+> **Important**: Students should always use the Docker scripts (`docker-build.sh`/`docker-run.sh` or `docker-build.ps1`/`docker-run.ps1`) to run the examples, not the internal scripts.
+
+## Conclusion
+
+The approach used in this example—having the LLM generate a complete plan upfront—is just one of many possible approaches to agent planning. The best approach depends on your specific requirements, including factors like predictability, flexibility, cost, and user experience.
+
+By understanding these different approaches, you can design an agent system that best meets your needs.

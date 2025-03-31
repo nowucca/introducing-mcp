@@ -1,16 +1,30 @@
 # MCP LLM Client Example
 
-This project demonstrates how an LLM (Large Language Model) can decide whether to call MCP tools based on user input. It shows how to integrate OpenAI's API with the Model Context Protocol (MCP).
+This example demonstrates how an LLM (Large Language Model) can decide whether to call MCP tools based on user input. It shows how to integrate OpenAI's API with the Model Context Protocol (MCP).
 
 ## What This Example Does
 
 When you run this example:
-
-1. The server advertises a "get_time" tool
+1. The server initializes and advertises a "get_time" tool
 2. The client connects and discovers this tool
 3. You'll be prompted to enter a question or request
 4. The LLM decides whether to call the time tool based on your input
 5. You'll see either the tool result or a direct LLM response
+
+## Key Concepts
+
+- **LLM Tool Selection**: How LLMs can intelligently decide when to use tools
+- **Tool Format Conversion**: Converting MCP tools to OpenAI function format
+- **Interactive Experience**: User-driven queries with dynamic tool usage
+- **Implementation Approaches**: Comparing raw protocol vs. high-level abstractions
+
+## Learning Objectives
+
+- Understand how MCP servers advertise tools to LLM clients
+- Learn how LLMs can decide whether to call tools based on user input
+- See the JSON-RPC message exchange in MCP
+- Explore how to integrate OpenAI's API with MCP
+- Progress from explicit protocol to high-level abstractions
 
 ## Interactive Experience
 
@@ -28,36 +42,6 @@ Try these examples:
 
 The LLM will intelligently decide whether to call the time tool based on your input.
 
-## How to Run the Example
-
-### Prerequisites: OpenAI API Key
-
-Before running this example, set up your OpenAI API key in the `.env` file:
-
-```
-OPENAI_API_KEY=your-api-key-here
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o
-```
-
-### Running with Docker
-
-#### Linux/macOS
-
-```bash
-# Build and run with Docker
-./docker-build.sh
-./docker-run.sh
-```
-
-#### Windows
-
-```powershell
-# Build and run with Docker
-.\docker-build.ps1
-.\docker-run.ps1
-```
-
 ## LLM Integration Explained
 
 This example demonstrates the key steps for integrating an LLM with MCP:
@@ -69,19 +53,20 @@ This example demonstrates the key steps for integrating an LLM with MCP:
 5. **Tool Invocation**: If the LLM decides to call a tool, the client sends the request to the server
 6. **Result Display**: The client displays the tool result or the LLM's direct response
 
-## Learning Path
+## Implementation Approaches
 
-This example provides two complementary implementations to help you understand MCP:
+This example provides two complementary implementations:
 
 1. **WebSocket Implementation (Default)**: Shows the raw JSON-RPC messages for learning
 2. **High-Level SDK Implementation**: Demonstrates a cleaner, production-ready approach
+
+## Implementation Details
 
 ### WebSocket Implementation: See the Protocol in Action
 
 The WebSocket implementation makes the MCP protocol visible, showing all JSON-RPC messages exchanged between client and server.
 
 #### Key Files
-
 - `server/server_websocket.py`: Explicit JSON-RPC message handling
 - `client/client_websocket.py`: Visible protocol exchange with LLM integration
 
@@ -100,14 +85,12 @@ When running the WebSocket implementation, watch for these key steps:
 After understanding the protocol, explore the high-level SDK implementation which abstracts away the protocol details.
 
 #### Key Files
-
 - `server/server.py`: Uses the decorator pattern for tool definition
 - `client/client.py`: Simplified client with automatic protocol handling and LLM integration
 
 #### Running the SDK Example
 
-#### Linux/macOS
-
+##### Linux/macOS
 ```bash
 # Run the SDK implementation with Docker
 IMPLEMENTATION=sdk ./docker-run.sh
@@ -115,8 +98,7 @@ IMPLEMENTATION=sdk ./docker-run.sh
 ./sdk-run.sh
 ```
 
-#### Windows
-
+##### Windows
 ```powershell
 # Run the SDK implementation with Docker
 $env:IMPLEMENTATION = "sdk"
@@ -126,7 +108,6 @@ $env:IMPLEMENTATION = "sdk"
 ```
 
 #### Key Differences
-
 - **Decorator-based API**: Define tools with `@server.tool` decorators
 - **Type Hints**: Automatically generate JSON schemas
 - **Protocol Abstraction**: No manual JSON-RPC handling
@@ -141,35 +122,39 @@ $env:IMPLEMENTATION = "sdk"
 | Learning Value       | See how MCP works           | See best practices       |
 | Production Readiness | Medium                      | High                     |
 
-## What You'll Learn
+## Running the Example
 
-- How MCP servers advertise tools to LLM clients
-- How LLMs can decide whether to call tools based on user input
-- The JSON-RPC message exchange in MCP
-- How to integrate OpenAI's API with MCP
-- Progression from explicit protocol to high-level abstractions
+### Prerequisites: OpenAI API Key
 
-## Docker Support
+Before running this example, set up your OpenAI API key in the `.env` file:
+
+```
+OPENAI_API_KEY=your-api-key-here
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o
+```
+
+> **Note**: If you use the `run_exercises.py` script to run this example, the `.env` file will be created for you automatically.
+
+### Docker Support
 
 This example includes Docker support with helpful scripts:
 
-### Linux/macOS
-
+#### Linux/macOS
 - `docker-build.sh`: Builds the Docker image
 - `docker-run.sh`: Runs the container with WebSocket implementation
 - `docker-clean.sh`: Cleans up containers and images
 - `docker-stop.sh`: Stops running containers
 - `sdk-run.sh`: Runs the container with SDK implementation
 
-### Windows
-
+#### Windows
 - `docker-build.ps1`: Builds the Docker image
 - `docker-run.ps1`: Runs the container with WebSocket implementation
 - `docker-clean.ps1`: Cleans up containers and images
 - `docker-stop.ps1`: Stops running containers
 - `sdk-run.ps1`: Runs the container with SDK implementation
 
-## Internal Scripts (For Docker Use Only)
+### Internal Scripts (For Docker Use Only)
 
 The `run.sh` script is used internally by the Docker container and is not intended to be run directly:
 
@@ -179,7 +164,6 @@ The `run.sh` script is used internally by the Docker container and is not intend
 ```
 
 It handles:
-
 1. Starting the server in the background
 2. Waiting for initialization
 3. Running the appropriate client

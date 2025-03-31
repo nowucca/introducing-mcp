@@ -12,7 +12,7 @@ import websockets
 from websockets.server import WebSocketServerProtocol
 
 # Import MCP types for proper protocol formatting
-from mcp.types import Tool, ListToolsResult, JSONRPCRequest, JSONRPCResponse, LATEST_PROTOCOL_VERSION
+from mcp.types import Tool, ListToolsResult, JSONRPCRequest, JSONRPCResponse, JSONRPCError, LATEST_PROTOCOL_VERSION
 
 # Configure logging
 logging.basicConfig(
@@ -167,7 +167,7 @@ async def handle_message(websocket: WebSocketServerProtocol):
                                 except pytz.exceptions.UnknownTimeZoneError:
                                     # Invalid timezone
                                     logger.warning(f"Unknown timezone: {timezone_str}")
-                                    response = JSONRPCResponse(
+                                    response = JSONRPCError(
                                         jsonrpc="2.0",
                                         id=request.id,
                                         error={
@@ -181,7 +181,7 @@ async def handle_message(websocket: WebSocketServerProtocol):
                             else:
                                 # Unknown tool
                                 logger.warning(f"Unknown tool requested: {tool_name}")
-                                response = JSONRPCResponse(
+                                response = JSONRPCError(
                                     jsonrpc="2.0",
                                     id=request.id,
                                     error={
@@ -196,7 +196,7 @@ async def handle_message(websocket: WebSocketServerProtocol):
                         else:
                             # Unknown method
                             logger.warning(f"Unknown method requested: {request.method}")
-                            response = JSONRPCResponse(
+                            response = JSONRPCError(
                                 jsonrpc="2.0",
                                 id=request.id,
                                 error={

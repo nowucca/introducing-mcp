@@ -260,6 +260,30 @@ async def run_client():
                     print("=" * 60)
                     print("All tool calls completed!")
                     print("=" * 60)
+                    
+                    # Test error handling with direct tool call
+                    print("\nTesting error handling with direct tool call...")
+                    print("-" * 60)
+                    
+                    # Create and execute an error tool call
+                    error_tool_call = {
+                        "name": "get_error",
+                        "arguments": {
+                            "message": "This is a test error from client.py"
+                        }
+                    }
+                    
+                    # Execute the error tool call
+                    error_result = await execute_tool_call(session, error_tool_call)
+                    tool_call, result = error_result
+                    
+                    # Display the result
+                    print(f"Error tool test: {error_tool_call['name']}")
+                    if isinstance(result, Exception):
+                        print(f"  → ERROR (as expected): {str(result)}")
+                    else:
+                        print(f"  → Unexpected success: {result}")
+                    print("=" * 60)
                 else:
                     print("\nThe LLM did not generate any tool calls for this query.")
                     print("=" * 60)

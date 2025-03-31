@@ -2,25 +2,29 @@
 
 This example demonstrates how to execute multiple tool calls concurrently using the Model Context Protocol (MCP). It shows how to build a plan of tool calls, assign unique IDs to each call, and gather all results in parallel.
 
-## Overview
+## What This Example Does
 
-In this example, we create a client that:
-
-1. Connects to an MCP server
-2. Requests the list of available tools
-3. Creates a plan of multiple tool calls (get_time and get_weather)
-4. Executes all tool calls concurrently
-5. Gathers and processes the results
+When you run this example:
+1. The client connects to an MCP server
+2. The client requests the list of available tools
+3. The client creates a plan of multiple tool calls (get_time and get_weather)
+4. The client executes all tool calls concurrently
+5. The client gathers and processes the results
+6. The combined results are displayed
 
 ## Key Concepts
 
-### Parallel Execution
+- **Parallel Execution**: Running multiple tool calls concurrently instead of sequentially
+- **Reference Tracking**: Assigning unique IDs to each call to match responses to requests
+- **Asynchronous Programming**: Using `asyncio.gather()` to manage concurrent operations
+- **Plan-based Execution**: Creating and executing a predefined plan of tool calls
 
-The core concept demonstrated is parallel execution of tool calls. Instead of calling tools sequentially (one after another), we use `asyncio.gather()` to run multiple tool calls concurrently, which can significantly improve performance when dealing with multiple independent operations.
+## Learning Objectives
 
-### Reference Tracking
-
-Each tool call is assigned a unique reference ID (UUID) to track its response. This allows us to match responses to their corresponding requests, even when they arrive out of order.
+- Understand how to execute multiple MCP tool calls concurrently
+- Learn how to track and match responses to their corresponding requests
+- See how to improve performance by parallelizing independent operations
+- Explore patterns for building efficient agent systems
 
 ## Implementation Details
 
@@ -75,7 +79,7 @@ sequenceDiagram
 
 For more detailed diagrams showing the component structure and reference tracking system, see [mermaid-diagram.md](mermaid-diagram.md).
 
-### Code Structure
+### Code Implementation
 
 The implementation uses the following approach:
 
@@ -83,31 +87,45 @@ The implementation uses the following approach:
 2. **do_plan function**: Creates coroutines for each tool call and executes them concurrently using `asyncio.gather()`
 3. **Result processing**: Processes the results from all tool calls and formats them for display
 
+## SDK vs WebSocket Implementation
+
+This example includes two client implementations:
+
+1. **client.py**: Uses the high-level MCP SDK
+2. **client_websocket.py**: Uses raw WebSocket communication with JSON-RPC messages
+
+Both implementations demonstrate the same parallel execution pattern but with different communication methods.
 ## Running the Example
 
-### Prerequisites
+### Prerequisites: OpenAI API Key
 
-- Python 3.8 or higher
-- Required packages: `mcp`, `websockets`, `python-dotenv`
+Before running this example, set up your OpenAI API key in the `.env` file:
 
-### Setup
-
-1. Create a `.env` file with your OpenAI API credentials:
-   ```
-   OPENAI_API_KEY=your-api-key
-   OPENAI_BASE_URL=https://api.openai.com/v1
-   OPENAI_MODEL=gpt-4o
-   ```
-
-### Running with Docker
-
-```bash
-# Build the Docker image
-./docker-build.sh
-
-# Run the example
-./docker-run.sh
 ```
+OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o
+```
+
+> **Note**: If you use the `run_exercises.py` script to run this example, the `.env` file will be created for you automatically.
+
+### Docker Support
+
+This example includes Docker support with helpful scripts:
+
+#### Linux/macOS
+- `docker-build.sh`: Builds the Docker image
+- `docker-run.sh`: Runs the container with WebSocket implementation
+- `docker-clean.sh`: Cleans up containers and images
+- `docker-stop.sh`: Stops running containers
+- `sdk-run.sh`: Runs the container with SDK implementation
+
+#### Windows
+- `docker-build.ps1`: Builds the Docker image
+- `docker-run.ps1`: Runs the container with WebSocket implementation
+- `docker-clean.ps1`: Cleans up containers and images
+- `docker-stop.ps1`: Stops running containers
+- `sdk-run.ps1`: Runs the container with SDK implementation
 
 ### Running Locally
 
@@ -119,11 +137,19 @@ The implementation uses the following approach:
 ./run_client.sh
 ```
 
-## SDK vs WebSocket Implementation
+### Internal Scripts (For Docker Use Only)
 
-This example includes two client implementations:
+The `run.sh` script is used internally by the Docker container and is not intended to be run directly:
 
-1. **client.py**: Uses the high-level MCP SDK
-2. **client_websocket.py**: Uses raw WebSocket communication with JSON-RPC messages
+```bash
+# This is used internally by Docker - DO NOT RUN DIRECTLY
+./run.sh
+```
 
-Both implementations demonstrate the same parallel execution pattern but with different communication methods.
+It handles:
+1. Starting the server in the background
+2. Waiting for initialization
+3. Running the appropriate client
+4. Cleaning up processes when done
+
+> **Important**: Students should always use the Docker scripts (`docker-build.sh`/`docker-run.sh` or `docker-build.ps1`/`docker-run.ps1`) to run the examples, not the internal scripts.

@@ -12,6 +12,22 @@ logger = logging.getLogger(__name__)
 # Create server with minimal configuration
 server = FastMCP(name="MCP Multiple Tools Server")
 
+# Define our error tool that always fails
+@server.tool(description="This tool always fails (for error handling demonstration)")
+def get_error(message: str = "Default error message") -> str:
+    """Always fails with an error (for demonstrating error handling)
+    
+    Args:
+        message: Optional custom error message
+        
+    Returns:
+        Never returns successfully, always raises an exception
+    """
+    logger.info(f"Tool get_error called with message: {message}")
+    error_msg = f"Intentional error triggered: {message}"
+    logger.error(error_msg)
+    raise ValueError(error_msg)
+
 # Define our time tool using the decorator pattern
 @server.tool(description="Returns the current time in the specified timezone")
 def get_time(timezone: str = "UTC") -> str:
