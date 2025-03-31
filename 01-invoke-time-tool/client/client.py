@@ -1,44 +1,110 @@
-import os
+#!/usr/bin/env python3
 import asyncio
-import json
-import openai
-from dotenv import load_dotenv
-from mcp import Message, connect
+import logging
+import sys
+import traceback
+from contextlib import AsyncExitStack
 
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-openai.base_url = os.getenv("OPENAI_BASE_URL")
-model = os.getenv("OPENAI_MODEL", "gpt-4o")
+from mcp import ClientSession
+from mcp.client.stdio import stdio_client, StdioServerParameters
 
-async def main():
-    tools = []
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='CLIENT: %(message)s')
+logger = logging.getLogger(__name__)
 
-    async def on_receive(msg):
-        nonlocal tools
-        if msg.type == "tool.callable":
-            tools.append(msg.content)
-        elif msg.type == "tool.response":
-            print("Tool Response:", msg.content)
+async def run_client():
+    """Connect to the MCP server, list tools, call the time tool, and display the result"""
+    logger.info("Starting MCP client")
+    
+    # Create server parameters for stdio transport
+    server_params = StdioServerParameters(
+        command="python",
+        args=["server/server.py"],
+        env=None
+    )
+    
+    # Use AsyncExitStack for proper resource cleanup
+    exit_stack = AsyncExitStack()
+    
+    try:
+        # Connect to the server
+        logger.info("Opening stdio connection...")
+        stdio_transport = await exit_stack.enter_async_context(stdio_client(server_params))
+        read_stream, write_stream = stdio_transport
+        logger.info("Stdio connection established")
+        
+        # Create a session
+        logger.info("Creating ClientSession...")
+        session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+        logger.info("ClientSession created")
+        
+        # Initialize the connection
+        logger.info("Initializing connection...")
+        try:
+            initialize_result = await asyncio.wait_for(session.initialize(), timeout=10.0)
+            logger.info(f"Connected to server: {initialize_result.serverInfo.name}")
+            
+            # Request the list of tools
+            logger.info("Requesting tool list...")
+            tools_response = await asyncio.wait_for(session.list_tools(), timeout=10.0)
+            
+            # Display tool advertisements
+            if tools_response.tools:
+                logger.info(f"Server advertised {len(tools_response.tools)} tools:")
+                for tool in tools_response.tools:
+                    logger.info(f"  - {tool.name}: {tool.description}")
+                logger.info("Tool advertisement received successfully!")
+                
+                # Find the time tool
+                time_tool = next((tool for tool in tools_response.tools if tool.name == "get_time"), None)
+                if time_tool:
+                    # Call the time tool
+                    logger.info("Calling the get_time tool...")
+                    tool_result = await asyncio.wait_for(
+                        session.call_tool(name="get_time", arguments={}),
+                        timeout=10.0
+                    )
+                    
+                    # Display the result
+                    if tool_result.content:
+                        for content_item in tool_result.content:
+                            if content_item.type == "text":
+                                print("\n" + "=" * 40)
+                                print(content_item.text)
+                                print("=" * 40 + "\n")
+                                logger.info(f"Time tool result: {content_item.text}")
+                    else:
+                        logger.warning("Time tool returned no content")
+                else:
+                    logger.warning("The get_time tool was not found in the server's tool list")
+            else:
+                logger.info("No tools advertised by the server")
+                
+        except asyncio.TimeoutError:
+            logger.error("Operation timed out")
+            return 1
+            
+    except Exception as e:
+        logger.error(f"Error: {type(e).__name__}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return 1
+    finally:
+        # AsyncExitStack will properly clean up resources
+        await exit_stack.aclose()
+    
+    return 0
 
-    async def on_open(send):
-        await asyncio.sleep(1)
-        tool_spec = [{"type": "function", "function": t} for t in tools]
-        user_input = input("What would you like the assistant to do? ")
-        completion = openai.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": user_input}],
-            tools=tool_spec,
-            tool_choice="auto"
-        )
-        for tool_call in completion.choices[0].message.tool_calls:
-            name = tool_call.function.name
-            arguments = json.loads(tool_call.function.arguments)
-            await send(Message(
-                type="tool.invoke",
-                content={"name": name, "arguments": arguments},
-                ref="abc123"
-            ))
+def main():
+    """Entry point function"""
+    try:
+        return asyncio.run(run_client())
+    except KeyboardInterrupt:
+        logger.info("Client stopped by user")
+        return 0
+    except Exception as e:
+        logger.error(f"Unhandled exception: {e}")
+        logger.error(traceback.format_exc())
+        return 1
 
-    await connect("ws://localhost:8000", on_open=on_open, on_receive=on_receive)
-
-asyncio.run(main())
+if __name__ == "__main__":
+    sys.exit(main())
