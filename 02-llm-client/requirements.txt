@@ -1,0 +1,7 @@
+mcp
+websockets>=11.0.0
+anyio>=3.7.0
+python-dotenv
+sseclient-py
+requests
+openai>=1.0.0

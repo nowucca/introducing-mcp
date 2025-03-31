@@ -1,27 +1,43 @@
-import asyncio
+#!/usr/bin/env python3
+import logging
+import traceback
 from datetime import datetime
-from mcp import Message, serve
+from mcp.server.fastmcp import FastMCP
 
-TOOL = Message(type="tool.callable", content={
-    "name": "get_time",
-    "description": "Returns the current time",
-    "parameters": {"type": "object", "properties": {}}
-})
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='SERVER: %(message)s')
+logger = logging.getLogger(__name__)
 
-async def on_open(send):
-    await send(TOOL)
+# Create server with minimal configuration
+server = FastMCP(name="MCP LLM Client Server")
 
-async def on_receive(msg, send):
-    if msg.type == "tool.invoke" and msg.content["name"] == "get_time":
-        now = datetime.now().strftime("%H:%M:%S")
-        await send(Message(
-            type="tool.response",
-            content={"output": f"The time is {now}"},
-            ref=msg.ref
-        ))
+# Define our time tool using the decorator pattern
+@server.tool(description="Returns the current time")
+def get_time(format: str = "%H:%M:%S") -> str:
+    """Returns the current time with the specified format"""
+    logger.info(f"Tool get_time called with format: {format}")
+    
+    # Get the current time with the specified format
+    current_time = datetime.now().strftime(format)
+    logger.info(f"Current time: {current_time}")
+    
+    # Return the formatted time
+    return f"The current time is: {current_time}"
 
-async def main():
-    await serve(on_open=on_open, on_receive=on_receive)
-
+# Run server
 if __name__ == "__main__":
-    asyncio.run(main())
+    logger.info("Starting MCP server")
+    
+    # List all tools before starting the server
+    tools = server._tool_manager.list_tools()
+    logger.info(f"Server has {len(tools)} tools registered:")
+    for tool in tools:
+        logger.info(f"  - {tool.name}: {tool.description}")
+    
+    try:
+        # Run the server with stdio transport
+        logger.info("Starting server with stdio transport")
+        server.run("stdio")
+    except Exception as e:
+        logger.error(f"Server error: {type(e).__name__}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
