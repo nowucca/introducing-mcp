@@ -21,12 +21,6 @@ This document provides an overview of the differences between MCP SDK implementa
   - Tool discovery and invocation
   - Result handling and display
 
-#### Testing Prompts
-- "What time is it?"
-- "Tell me the current time."
-- "What time is it in 24-hour format?" (tests format parameter)
-- "Show me the time in HH:MM format." (tests custom format)
-
 ### 02-llm-client
 - **LLM Integration**: Adds language model capabilities
 - **Key Features**:
@@ -40,6 +34,9 @@ This document provides an overview of the differences between MCP SDK implementa
 - "Tell me the current time."
 - "What's the weather like?" (should not work, but tests LLM's understanding of available tools)
 - "Can you help me with my homework?" (tests LLM's response when no relevant tools are available)
+- "What time is it in 24-hour format?" (tests format parameter)
+- "Show me the time in HH:MM format." (tests custom format)
+
 
 ### 03-context-memory
 - **Context and Memory**: Adds persistent memory and context
