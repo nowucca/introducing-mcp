@@ -4,10 +4,8 @@ import json
 import logging
 import uuid
 import traceback
-from datetime import datetime
 from typing import Dict, Any, Optional
 
-import pytz
 import websockets
 from websockets.server import WebSocketServerProtocol
 
@@ -22,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Define our tools
+# Define our error tool
 error_tool = Tool(
     name="get_error",
     description="This tool always fails (for error handling demonstration)",
@@ -34,35 +32,6 @@ error_tool = Tool(
                 "description": "Optional custom error message"
             }
         }
-    }
-)
-
-time_tool = Tool(
-    name="get_time",
-    description="Returns the current time in the specified timezone",
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "timezone": {
-                "type": "string",
-                "description": "Timezone name (e.g., 'US/Pacific', 'Europe/London', 'Asia/Tokyo')"
-            }
-        }
-    }
-)
-
-weather_tool = Tool(
-    name="get_weather",
-    description="Get weather information for a city",
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "city": {
-                "type": "string",
-                "description": "City name (e.g., 'New York', 'London', 'Tokyo')"
-            }
-        },
-        "required": ["city"]
     }
 )
 
@@ -110,7 +79,7 @@ async def handle_message(websocket: WebSocketServerProtocol):
                                 result={
                                     "protocolVersion": LATEST_PROTOCOL_VERSION,
                                     "serverInfo": {
-                                        "name": "MCP Multiple Tools Server",
+                                        "name": "MCP Error Handling Server",
                                         "version": "0.1.0"
                                     },
                                     "capabilities": {
@@ -145,7 +114,7 @@ async def handle_message(websocket: WebSocketServerProtocol):
                         elif request.method == "tools/list":
                             logger.info(f"Processing tools/list request")
                             # Respond with our tool advertisements
-                            tools_result = ListToolsResult(tools=[time_tool, weather_tool, error_tool])
+                            tools_result = ListToolsResult(tools=[error_tool])
                             response = JSONRPCResponse(
                                 jsonrpc="2.0",
                                 id=request.id,
@@ -164,51 +133,7 @@ async def handle_message(websocket: WebSocketServerProtocol):
                             tool_name = request.params.get("name")
                             arguments = request.params.get("arguments", {})
                             
-                            if tool_name == "get_time":
-                                # Get the timezone if provided, otherwise use UTC
-                                timezone_str = arguments.get("timezone", "UTC")
-                                
-                                try:
-                                    # Get the timezone object
-                                    timezone = pytz.timezone(timezone_str)
-                                    
-                                    # Get the current time in the specified timezone
-                                    current_time = datetime.now(timezone).strftime("%H:%M:%S %Z")
-                                    logger.info(f"Current time in {timezone_str}: {current_time}")
-                                    
-                                    # Send the response
-                                    response = JSONRPCResponse(
-                                        jsonrpc="2.0",
-                                        id=request.id,
-                                        result={
-                                            "content": [
-                                                {
-                                                    "type": "text",
-                                                    "text": f"The current time in {timezone_str} is: {current_time}"
-                                                }
-                                            ]
-                                        }
-                                    )
-                                    response_json = json.dumps(response.model_dump(exclude_none=True))
-                                    logger.debug(f"Tool call response: {response_json}")
-                                    await websocket.send(response_json)
-                                    logger.info("Sent time tool response")
-                                except pytz.exceptions.UnknownTimeZoneError:
-                                    # Invalid timezone
-                                    logger.warning(f"Unknown timezone: {timezone_str}")
-                                    response = JSONRPCError(
-                                        jsonrpc="2.0",
-                                        id=request.id,
-                                        error={
-                                            "code": -32602,
-                                            "message": f"Invalid timezone: {timezone_str}"
-                                        }
-                                    )
-                                    response_json = json.dumps(response.model_dump(exclude_none=True))
-                                    logger.debug(f"Invalid timezone response: {response_json}")
-                                    await websocket.send(response_json)
-                            
-                            elif tool_name == "get_error":
+                            if tool_name == "get_error":
                                 # Get the message if provided
                                 message = arguments.get("message", "Default error message")
                                 error_msg = f"Intentional error triggered: {message}"
@@ -227,48 +152,6 @@ async def handle_message(websocket: WebSocketServerProtocol):
                                 logger.debug(f"Error tool response: {response_json}")
                                 await websocket.send(response_json)
                                 logger.info("Sent error tool response")
-                            
-                            elif tool_name == "get_weather":
-                                # Get the city parameter
-                                city = arguments.get("city", "")
-                                
-                                if not city:
-                                    # Missing required parameter
-                                    logger.warning("Missing required city parameter")
-                                    response = JSONRPCError(
-                                        jsonrpc="2.0",
-                                        id=request.id,
-                                        error={
-                                            "code": -32602,
-                                            "message": "Missing required parameter: city"
-                                        }
-                                    )
-                                    response_json = json.dumps(response.model_dump(exclude_none=True))
-                                    logger.debug(f"Missing parameter response: {response_json}")
-                                    await websocket.send(response_json)
-                                else:
-                                    # In a real implementation, this would call a weather API
-                                    # For this example, we'll just return a hardcoded response
-                                    weather_info = f"Sunny in {city}"
-                                    logger.info(f"Weather in {city}: {weather_info}")
-                                    
-                                    # Send the response
-                                    response = JSONRPCResponse(
-                                        jsonrpc="2.0",
-                                        id=request.id,
-                                        result={
-                                            "content": [
-                                                {
-                                                    "type": "text",
-                                                    "text": weather_info
-                                                }
-                                            ]
-                                        }
-                                    )
-                                    response_json = json.dumps(response.model_dump(exclude_none=True))
-                                    logger.debug(f"Tool call response: {response_json}")
-                                    await websocket.send(response_json)
-                                    logger.info("Sent weather tool response")
                             
                             else:
                                 # Unknown tool
@@ -355,14 +238,10 @@ async def main():
     host = "localhost"
     port = 8765
     
-    logger.info(f"Starting MCP server on ws://{host}:{port}")
+    logger.info(f"Starting MCP Error Handling server on ws://{host}:{port}")
     logger.debug(f"Server binding to {host}:{port}")
-    logger.info(f"Server has 3 tools registered:")
-    logger.info(f"  - {time_tool.name}: {time_tool.description}")
-    logger.info(f"  - {weather_tool.name}: {weather_tool.description}")
+    logger.info(f"Server has 1 tool registered:")
     logger.info(f"  - {error_tool.name}: {error_tool.description}")
-    logger.debug(f"Time tool details: {json.dumps(time_tool.model_dump(), indent=2)}")
-    logger.debug(f"Weather tool details: {json.dumps(weather_tool.model_dump(), indent=2)}")
     logger.debug(f"Error tool details: {json.dumps(error_tool.model_dump(), indent=2)}")
     
     async with websockets.serve(handle_message, host, port):

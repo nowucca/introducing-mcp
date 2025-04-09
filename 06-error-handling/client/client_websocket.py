@@ -3,14 +3,11 @@ import asyncio
 import json
 import logging
 import uuid
-import os
 import sys
 import traceback
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Tuple, Optional
 
 import websockets
-from openai import OpenAI, OpenAIError
-from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -20,38 +17,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load .env file
-load_dotenv()
-
-# Load environment variables for OpenAI
-openai_api_key = os.getenv("OPENAI_API_KEY")
-openai_base_url = os.getenv("OPENAI_BASE_URL")
-openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
-
-# Create OpenAI client
-client = OpenAI(
-    api_key=openai_api_key,
-    base_url=openai_base_url
-)
-
 # Dictionary to store pending requests
 pending_requests = {}  # ref_id → future
 
-async def execute_tool_call(websocket, tool_call):
-    """Execute a single tool call and return the result with its reference
+async def execute_tool_call(websocket, tool_name, arguments):
+    """Execute a tool call and return the result
     
     Args:
         websocket: WebSocket connection
-        tool_call: Dictionary containing tool name and arguments
+        tool_name: Name of the tool to call
+        arguments: Dictionary of arguments for the tool
         
     Returns:
-        Tuple of (tool_call, result/exception)
+        Tuple of (success, result/error)
     """
     ref_id = str(uuid.uuid4())
-    tool_name = tool_call["name"]
-    arguments = tool_call["arguments"]
     
-    logger.info(f"Queuing tool call {tool_name} with ref_id {ref_id}")
+    logger.info(f"Executing tool call {tool_name}")
     logger.debug(f"Arguments: {json.dumps(arguments, indent=2)}")
     
     # Prepare the tool call request
@@ -76,59 +58,31 @@ async def execute_tool_call(websocket, tool_call):
         
         # Wait for the response
         result = await fut
-        logger.info(f"Tool call {tool_name} (ref_id {ref_id}) succeeded")
-        return tool_call, result
-    except Exception as e:
-        logger.error(f"Tool call {tool_name} (ref_id {ref_id}) failed: {e}")
-        return tool_call, e
-
-async def do_plan(websocket, plan):
-    """Execute a plan of multiple tool calls concurrently
-    
-    Args:
-        websocket: WebSocket connection
-        plan: A list of tool call specifications, each with name and arguments
+        logger.info(f"Tool call {tool_name} completed")
         
-    Returns:
-        List of results from all tool calls
-    """
-    logger.info(f"Executing plan with {len(plan)} tool calls")
-    logger.debug(f"Plan details: {json.dumps(plan, indent=2)}")
-    
-    # Create a list of coroutines to execute
-    coroutines = [execute_tool_call(websocket, tool_call) for tool_call in plan]
-    
-    # Execute all tool calls concurrently and wait for all results
-    logger.info(f"Waiting for {len(plan)} tool call results")
-    results = await asyncio.gather(*coroutines, return_exceptions=False)
-    
-    # Process results
-    processed_results = []
-    for tool_call, result in results:
-        if isinstance(result, Exception):
-            processed_results.append({
-                "tool": tool_call["name"],
-                "success": False,
-                "error": str(result)
-            })
-        else:
-            # Extract text from content items
+        # Check if the result is an error
+        if isinstance(result, dict) and "error" in result:
+            # Tool returned an error
+            error_msg = result["error"]["message"]
+            logger.error(f"Tool call {tool_name} returned an error: {error_msg}")
+            return False, error_msg
+        elif isinstance(result, dict) and "content" in result:
+            # Tool succeeded
             text_content = []
-            if isinstance(result, dict) and "content" in result:
-                for content_item in result["content"]:
-                    if content_item.get("type") == "text":
-                        text_content.append(content_item["text"])
-            
-            processed_results.append({
-                "tool": tool_call["name"],
-                "success": True,
-                "result": text_content
-            })
-    
-    return processed_results
+            for content_item in result["content"]:
+                if content_item.get("type") == "text":
+                    text_content.append(content_item["text"])
+            return True, text_content
+        else:
+            # Unexpected result format
+            return False, f"Unexpected result format: {result}"
+    except Exception as e:
+        # Exception during tool call
+        logger.error(f"Tool call {tool_name} failed with exception: {e}")
+        return False, str(e)
 
 async def connect_to_server():
-    """Connect to the MCP server and execute a plan of tool calls"""
+    """Connect to the MCP server and demonstrate error handling"""
     uri = "ws://localhost:8765"
     logger.info(f"Connecting to MCP server at {uri}")
     logger.debug(f"Using WebSocket URI: {uri}")
@@ -151,7 +105,7 @@ async def connect_to_server():
                 "params": {
                     "protocolVersion": "2024-11-05",
                     "clientInfo": {
-                        "name": "MCP Agent Parallel WebSocket Client",
+                        "name": "MCP Error Handling WebSocket Client",
                         "version": "0.1.0"
                     },
                     "capabilities": {
@@ -185,9 +139,6 @@ async def connect_to_server():
                 await websocket.send(json.dumps(initialized_notification))
                 logger.info("Sent initialized notification to server")
                 
-                # The server might send a tools/list_changed notification right after initialized
-                # We handle it in the message handler task
-                
                 # Request the tools list
                 logger.info("Requesting tool list")
                 tools_id = str(uuid.uuid4())
@@ -217,108 +168,39 @@ async def connect_to_server():
                     logger.info(f"Server advertised {len(tools)} tools:")
                     for tool in tools:
                         logger.info(f"  - {tool['name']}: {tool['description']}")
-                
-                    # Check if OpenAI API key is set
-                    if not openai_api_key or openai_api_key == "your-api-key":
-                        logger.error("OpenAI API key not set")
-                        print("\nERROR: OpenAI API key not set. Please set your API key in the .env file.")
-                        print("Create a .env file with the following content:")
-                        print("OPENAI_API_KEY=your-api-key")
-                        print("OPENAI_BASE_URL=https://api.openai.com/v1")
-                        print("OPENAI_MODEL=gpt-4o\n")
-                        return 1
-                    
-                    # Convert MCP tools to OpenAI function format
-                    openai_tools = []
-                    for tool in tools:
-                        openai_tool = {
-                            "type": "function",
-                            "function": {
-                                "name": tool["name"],
-                                "description": tool["description"],
-                                "parameters": tool.get("inputSchema", {"type": "object", "properties": {}})
-                            }
-                        }
-                        openai_tools.append(openai_tool)
-                    
-                    # Get user input
-                    user_input = input("\nWhat would you like to know? (e.g., 'What's the time in Tokyo, London, and New York?'): ")
-                    logger.info(f"User input: {user_input}")
-                    
-                    # Send user input to OpenAI with tools
-                    logger.info("Sending user input to OpenAI with tools")
-                    try:
-                        completion = client.chat.completions.create(
-                            model=openai_model,
-                            messages=[{"role": "user", "content": user_input}],
-                            tools=openai_tools,
-                            tool_choice="auto"
-                        )
-                        
-                        # Check if the LLM decided to call tools
-                        plan = []
-                        if completion.choices[0].message.tool_calls:
-                            logger.info("LLM decided to call tools")
-                            
-                            for tool_call in completion.choices[0].message.tool_calls:
-                                tool_name = tool_call.function.name
-                                try:
-                                    arguments = json.loads(tool_call.function.arguments)
-                                except json.JSONDecodeError:
-                                    arguments = {}
-                                
-                                # Add to our plan
-                                plan.append({
-                                    "name": tool_name,
-                                    "arguments": arguments
-                                })
-                                
-                            logger.info(f"LLM generated plan with {len(plan)} tool calls")
-                        else:
-                            # LLM decided not to call any tools
-                            logger.info("LLM decided not to call any tools")
-                            print("\n" + "=" * 60)
-                            print("LLM RESPONSE:")
-                            print(completion.choices[0].message.content)
-                            print("=" * 60 + "\n")
-                            logger.info(f"LLM response: {completion.choices[0].message.content}")
-                            return 0
-                            
-                    except Exception as e:
-                        logger.error(f"Error calling OpenAI API: {e}")
-                        logger.debug(f"OpenAI API error details: {traceback.format_exc()}")
-                        print(f"\nError calling OpenAI API: {e}")
-                        return 1
-                    
-                    if not plan:
-                        logger.info("No plan generated")
-                        print("No plan was generated.")
-                        return 0
                     
                     print("\n" + "=" * 60)
-                    print("EXECUTING LLM-GENERATED PLAN OF PARALLEL TOOL CALLS")
+                    print("ERROR HANDLING EXAMPLE")
                     print("=" * 60)
-                    print(f"Plan contains {len(plan)} tool calls:")
-                    for i, tool_call in enumerate(plan):
-                        print(f"  {i+1}. {tool_call['name']}({json.dumps(tool_call['arguments'])})")
+                    
+                    # Test error handling with different scenarios
+                    print("\nTesting error handling with different scenarios:")
                     print("-" * 60)
                     
-                    # Execute the plan
-                    results = await do_plan(websocket, plan)
+                    # Scenario 1: Basic error with default message
+                    print("\nScenario 1: Basic error with default message")
+                    success, result = await execute_tool_call(websocket, "get_error", {})
+                    print(f"Success: {success}")
+                    print(f"Result: {result}")
                     
-                    # Display results
-                    print("\nRESULTS OF PARALLEL EXECUTION:")
-                    print("-" * 60)
-                    for i, result in enumerate(results):
-                        print(f"Tool {i+1}: {result['tool']}")
-                        if result['success']:
-                            for text in result['result']:
-                                print(f"  → {text}")
-                        else:
-                            print(f"  → ERROR: {result['error']}")
+                    # Scenario 2: Error with custom message
+                    print("\nScenario 2: Error with custom message")
+                    success, result = await execute_tool_call(websocket, "get_error", {
+                        "message": "This is a custom error message"
+                    })
+                    print(f"Success: {success}")
+                    print(f"Result: {result}")
+                    
+                    # Scenario 3: Call non-existent tool
+                    print("\nScenario 3: Call non-existent tool")
+                    success, result = await execute_tool_call(websocket, "non_existent_tool", {})
+                    print(f"Success: {success}")
+                    print(f"Result: {result}")
+                    
                     print("=" * 60)
-                    print("All tool calls completed concurrently!")
+                    print("All error handling tests completed!")
                     print("=" * 60)
+                    
                 else:
                     logger.info("No tools advertised by the server")
                     logger.debug(f"Response contained no tools: {json.dumps(tools_response, indent=2)}")
@@ -395,7 +277,7 @@ async def handle_server_messages(websocket):
 def main():
     """Entry point function"""
     try:
-        logger.info("Starting MCP Agent Parallel WebSocket client")
+        logger.info("Starting MCP Agent Planning WebSocket client")
         asyncio.run(connect_to_server())
         return 0
     except KeyboardInterrupt:

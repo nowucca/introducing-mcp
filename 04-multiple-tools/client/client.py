@@ -171,16 +171,16 @@ def fill_args_if_missing(tool_name: str, arguments: Dict[str, Any]) -> Dict[str,
                 # Remove the city parameter as it's not part of the tool's schema
                 del filled_args["city"]
         
-        # Check if the timezone is valid, if not, use the one from memory
-        if "timezone" in filled_args and not is_valid_timezone(filled_args["timezone"]):
-            logger.info(f"Invalid timezone '{filled_args['timezone']}', using default from memory")
+        # If no timezone is provided, or if UTC is provided (as a default), use memory
+        if "timezone" not in filled_args:
+            if "timezone" in memory:
+                filled_args["timezone"] = memory["timezone"]
+                logger.info(f"Added timezone from memory: {memory['timezone']}")
+        elif filled_args["timezone"] == "UTC" and "timezone" in memory:
+            # Replace UTC with memory timezone (UTC is likely a default)
+            logger.info(f"Replacing default UTC timezone with memory value")
             filled_args["timezone"] = memory["timezone"]
-            logger.info(f"Replaced with timezone from memory: {memory['timezone']}")
-        
-        # Add timezone from memory if not provided
-        if "timezone" not in filled_args and "timezone" in memory:
-            filled_args["timezone"] = memory["timezone"]
-            logger.info(f"Added timezone from memory: {memory['timezone']}")
+            logger.info(f"Using timezone from memory: {memory['timezone']}")
     
     return filled_args
 

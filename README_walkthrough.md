@@ -5,6 +5,7 @@ This document provides an overview of the differences between MCP SDK implementa
 ## Version Implementations
 
 ### 00-advertise-tool
+
 - **Basic Functionality**: Only advertises tools without actual implementation
 - **Key Features**:
   - Tool advertisement structure
@@ -12,9 +13,11 @@ This document provides an overview of the differences between MCP SDK implementa
   - No actual tool functionality
 
 #### Testing Prompts
+
 - This version only advertises tools without implementation, so no specific user prompts will trigger functionality.
 
 ### 01-invoke-time-tool
+
 - **Basic Tool Implementation**: Adds actual functionality to the advertised tools
 - **Key Features**:
   - Functional time tool with format parameter
@@ -22,6 +25,7 @@ This document provides an overview of the differences between MCP SDK implementa
   - Result handling and display
 
 ### 02-llm-client
+
 - **LLM Integration**: Adds language model capabilities
 - **Key Features**:
   - OpenAI API integration
@@ -30,6 +34,7 @@ This document provides an overview of the differences between MCP SDK implementa
   - User prompt handling
 
 #### Testing Prompts
+
 - "What time is it?"
 - "Tell me the current time."
 - "What's the weather like?" (should not work, but tests LLM's understanding of available tools)
@@ -37,8 +42,8 @@ This document provides an overview of the differences between MCP SDK implementa
 - "What time is it in 24-hour format?" (tests format parameter)
 - "Show me the time in HH:MM format." (tests custom format)
 
-
 ### 03-context-memory
+
 - **Context and Memory**: Adds persistent memory and context
 - **Key Features**:
   - Timezone support instead of format strings
@@ -48,6 +53,7 @@ This document provides an overview of the differences between MCP SDK implementa
   - System messages to guide LLM behavior
 
 #### Testing Prompts
+
 - "What time is it?" (uses default timezone from memory)
 - "What time is it in Tokyo?" (tests city-to-timezone mapping)
 - "What's the time in PST?" (tests direct timezone specification)
@@ -55,6 +61,7 @@ This document provides an overview of the differences between MCP SDK implementa
 - "What time is it in InvalidCity?" (tests fallback to default timezone)
 
 ### 04-multiple-tools
+
 - **Multiple Tool Support**: Adds ability to work with multiple tools
 - **Key Features**:
   - Weather tool in addition to time tool
@@ -62,12 +69,14 @@ This document provides an overview of the differences between MCP SDK implementa
   - Handling multiple tool calls from a single LLM response
 
 #### Testing Prompts
+
 - "What time is it?" (exercises time tool)
 - "What's the weather in Seattle?" (exercises weather tool)
 - "What time is it in Tokyo and what's the weather in London?" (exercises multiple tool calls)
 - "Tell me the time and weather in New York." (exercises both tools with a single city)
 
 ### 05-agent-parallel
+
 - **Parallel Processing**: Adds concurrent tool execution
 - **Key Features**:
   - Parallel processing of multiple tool calls
@@ -75,24 +84,21 @@ This document provides an overview of the differences between MCP SDK implementa
   - Performance improvements for multiple tool calls
 
 #### Testing Prompts
+
 - "What's the time in Tokyo, London, and New York?" (exercises parallel processing of multiple time tool calls)
 - "What's the weather in Seattle, Miami, and Berlin?" (exercises parallel processing of multiple weather tool calls)
 - "Tell me the time and weather in Tokyo, London, and New York." (exercises parallel processing of mixed tool calls)
 
-### 06-agent-planning
-- **Error Handling and Planning**: Adds sophisticated error handling and planning
+### 06-error-handling
+
+- **Error Handling**: Focuses on error handling patterns and techniques
 - **Key Features**:
   - Error tool that intentionally fails
-  - Planning capabilities for tool selection and ordering
-  - Error recovery and handling
-  - Fallback mechanisms when tools fail
+  - Error handling patterns
+  - Error reporting and recovery
 
-#### Testing Prompts
-- "What time is it?" (basic time tool)
-- "What's the weather in Seattle?" (basic weather tool)
+#### Automated Prompt
+
 - "Try to get an error." (exercises the error tool)
-- "What's the time in an invalid timezone?" (tests error handling with invalid parameters)
-- "First tell me the weather in Seattle, then the time in Tokyo." (tests planning capabilities)
-- "Try to get an error, but if that fails, tell me the time." (tests fallback mechanisms)
-- "What's the best tool to use to find out the current time?" (tests planning and tool selection)
-
+- "Get an error with a custom message." (tests error handling with custom parameters)
+- "Call a non-existent tool." (tests error handling for invalid tools)

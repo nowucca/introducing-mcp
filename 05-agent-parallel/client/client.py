@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Tuple
 
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client, StdioServerParameters
+from openai import OpenAI, OpenAIError
 from dotenv import load_dotenv
 
 # Configure logging
@@ -19,6 +20,17 @@ logger = logging.getLogger(__name__)
 
 # Load .env file
 load_dotenv()
+
+# Load environment variables for OpenAI
+openai_api_key = os.getenv("OPENAI_API_KEY")
+openai_base_url = os.getenv("OPENAI_BASE_URL")
+openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+# Create OpenAI client
+client = OpenAI(
+    api_key=openai_api_key,
+    base_url=openai_base_url
+)
 
 async def execute_tool_call(session, tool_call):
     """Execute a single tool call and return the result with its reference
@@ -133,14 +145,85 @@ async def run_client():
                 for tool in tools_response.tools:
                     logger.info(f"  - {tool.name}: {tool.description}")
                 
-                # Define our plan of tool calls to execute concurrently
-                plan = [
-                    {"name": "get_time", "arguments": {}},
-                    {"name": "get_weather", "arguments": {"city": "Tokyo"}}
-                ]
+                # Check if OpenAI API key is set
+                if not openai_api_key or openai_api_key == "your-api-key":
+                    logger.error("OpenAI API key not set")
+                    print("\nERROR: OpenAI API key not set. Please set your API key in the .env file.")
+                    print("Create a .env file with the following content:")
+                    print("OPENAI_API_KEY=your-api-key")
+                    print("OPENAI_BASE_URL=https://api.openai.com/v1")
+                    print("OPENAI_MODEL=gpt-4o\n")
+                    return 1
+                
+                # Convert MCP tools to OpenAI function format
+                openai_tools = []
+                for tool in tools_response.tools:
+                    openai_tool = {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.inputSchema if tool.inputSchema else {"type": "object", "properties": {}}
+                        }
+                    }
+                    openai_tools.append(openai_tool)
+                
+                # Get user input
+                user_input = input("\nWhat would you like to know? (e.g., 'What's the time in Tokyo, London, and New York?'): ")
+                logger.info(f"User input: {user_input}")
+                
+                # Send user input to OpenAI with tools
+                logger.info("Sending user input to OpenAI with tools")
+                try:
+                    completion = client.chat.completions.create(
+                        model=openai_model,
+                        messages=[{"role": "user", "content": user_input}],
+                        tools=openai_tools,
+                        tool_choice="auto"
+                    )
+                    
+                    # Check if the LLM decided to call tools
+                    plan = []
+                    if completion.choices[0].message.tool_calls:
+                        logger.info("LLM decided to call tools")
+                        
+                        for tool_call in completion.choices[0].message.tool_calls:
+                            tool_name = tool_call.function.name
+                            try:
+                                arguments = json.loads(tool_call.function.arguments)
+                            except json.JSONDecodeError:
+                                arguments = {}
+                            
+                            # Add to our plan
+                            plan.append({
+                                "name": tool_name,
+                                "arguments": arguments
+                            })
+                            
+                        logger.info(f"LLM generated plan with {len(plan)} tool calls")
+                    else:
+                        # LLM decided not to call any tools
+                        logger.info("LLM decided not to call any tools")
+                        print("\n" + "=" * 60)
+                        print("LLM RESPONSE:")
+                        print(completion.choices[0].message.content)
+                        print("=" * 60 + "\n")
+                        logger.info(f"LLM response: {completion.choices[0].message.content}")
+                        return 0
+                        
+                except Exception as e:
+                    logger.error(f"Error calling OpenAI API: {e}")
+                    logger.debug(f"OpenAI API error details: {traceback.format_exc()}")
+                    print(f"\nError calling OpenAI API: {e}")
+                    return 1
+                
+                if not plan:
+                    logger.info("No plan generated")
+                    print("No plan was generated.")
+                    return 0
                 
                 print("\n" + "=" * 60)
-                print("EXECUTING PLAN OF PARALLEL TOOL CALLS")
+                print("EXECUTING LLM-GENERATED PLAN OF PARALLEL TOOL CALLS")
                 print("=" * 60)
                 print(f"Plan contains {len(plan)} tool calls:")
                 for i, tool_call in enumerate(plan):

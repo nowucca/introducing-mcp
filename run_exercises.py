@@ -57,15 +57,15 @@ EXERCISES = [
         "id": "05",
         "name": "agent-parallel",
         "description": "Shows how to run multiple agents in parallel",
-        "user_input": False,
+        "user_input": True,
         "notes": "Demonstrates parallel execution of MCP agents"
     },
     {
         "id": "06",
-        "name": "agent-planning",
-        "description": "Demonstrates agent planning with MCP tools",
+        "name": "error-handling",
+        "description": "Demonstrates error handling with MCP tools",
         "user_input": False,
-        "notes": "Shows how agents can plan and execute complex tasks"
+        "notes": "Shows how errors can be detected by MCP clients"
     }
 ]
 
